@@ -1,0 +1,1 @@
+Place approved official product photographs, brochures, video thumbnails, and certification documents in this folder. The current showroom uses original CSS-rendered illustrative product placeholders because authentic downloadable product asset URLs could not be verified in the current environment. Do not present placeholders as photographs.
