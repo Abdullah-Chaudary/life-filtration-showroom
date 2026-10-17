@@ -1,34 +1,41 @@
-import { Droplets, ShieldCheck } from 'lucide-react';
 import type { Product } from '../data/products';
 
-export default function ProductVisual({ product, compact = false }: { product: Product; compact?: boolean }) {
-  return (
-    <div className={`product-visual ${compact ? 'product-visual--compact' : ''}`} aria-label={`${product.name} visual preview`}>
-      <div className="visual-glow" />
-      <div className="product-photo-wrap">
+export default function ProductVisual({
+  product,
+  compact = false
+}: {
+  product: Product;
+  compact?: boolean;
+}) {
+  if (compact) {
+    return (
+      <div className="strip-thumbnail-card">
         <img
           src={product.image}
           alt={product.name}
-          className="product-photo-img"
-          loading={compact ? 'lazy' : 'eager'}
+          className="strip-thumbnail-img"
+          loading="lazy"
           onError={(e) => {
-            // graceful fallback if image fails to load
             const target = e.currentTarget;
             target.style.display = 'none';
-            const parent = target.parentElement;
-            if (parent) {
-              parent.classList.add('photo-fallback');
-            }
           }}
         />
-        {!compact && (
-          <div className="photo-badge">
-            <ShieldCheck size={14} className="text-emerald-600" />
-            <span>AUTHENTIC SYSTEM</span>
-          </div>
-        )}
       </div>
-      {!compact && <div className="visual-ground" />}
+    );
+  }
+
+  return (
+    <div className="product-visual" aria-label={`${product.name} visual preview`}>
+      <img
+        src={product.image}
+        alt={product.name}
+        className="art-full-bleed-img"
+        loading="eager"
+        onError={(e) => {
+          const target = e.currentTarget;
+          target.style.display = 'none';
+        }}
+      />
     </div>
   );
 }

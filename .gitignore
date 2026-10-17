@@ -4,3 +4,4 @@ android/
 .capacitor/
 *.log
 .DS_Store
+.agents/

@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion, type PanInfo } from 'framer-motion';
 import {
   ArrowLeft,
   ArrowRight,
   Check,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Droplet,
@@ -15,7 +14,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  Waves,
   X
 } from 'lucide-react';
 import { categories, products, type Product } from './data/products';
@@ -30,7 +28,6 @@ export default function App() {
   const [category, setCategory] = useState<string>('All Products');
   const [query, setQuery] = useState('');
   const [modal, setModal] = useState<ModalKind>(null);
-  const [showFilters, setShowFilters] = useState(false);
   const [lastInput, setLastInput] = useState(Date.now());
   const [showIdle, setShowIdle] = useState(false);
 
@@ -49,7 +46,7 @@ export default function App() {
   const active = visibleProducts.find((p) => p.id === activeId) ?? visibleProducts[0] ?? products[0];
 
   useEffect(() => {
-    const t = window.setTimeout(() => setSplash(false), 1600);
+    const t = window.setTimeout(() => setSplash(false), 1400);
     return () => window.clearTimeout(t);
   }, []);
 
@@ -74,9 +71,8 @@ export default function App() {
       if (!splash && Date.now() - lastInput > INACTIVITY_MS) {
         setShowIdle(true);
         setModal(null);
-        setShowFilters(false);
       }
-    }, 1500);
+    }, 2000);
     return () => window.clearInterval(timer);
   }, [lastInput, splash]);
 
@@ -92,14 +88,37 @@ export default function App() {
     selectProduct(visibleProducts[(idx + delta + visibleProducts.length) % visibleProducts.length]);
   };
 
+  // Keyboard navigation (ArrowLeft, ArrowRight) for desktop / tablet keyboards
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (modal) return;
+      if (e.key === 'ArrowLeft') {
+        step(-1);
+      } else if (e.key === 'ArrowRight') {
+        step(1);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [modal, active.id, visibleProducts]);
+
   useEffect(() => {
     if (visibleProducts.length && !visibleProducts.some((p) => p.id === activeId)) {
       setActiveId(visibleProducts[0].id);
     }
   }, [visibleProducts, activeId]);
 
+  // Handle horizontal swipe / drag gesture across the showcase with velocity handoff
+  const handleStageSwipe = (_e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    if (info.offset.x < -70 || info.velocity.x < -240) {
+      step(1);
+    } else if (info.offset.x > 70 || info.velocity.x > 240) {
+      step(-1);
+    }
+  };
+
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${modal ? 'has-modal-open' : ''}`}>
       {/* Splash Screen */}
       <AnimatePresence>
         {splash && (
@@ -107,16 +126,16 @@ export default function App() {
             className="splash"
             initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.55 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
           >
             <motion.div
               className="splash-mark"
-              initial={{ scale: 0.88, opacity: 0 }}
+              initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.65 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 260 }}
             >
               <span className="logo-drop">
-                <Droplet size={38} fill="currentColor" />
+                <Droplet size={36} fill="currentColor" />
               </span>
               <div className="logo-text-group">
                 <span className="logo-wordmark">
@@ -125,55 +144,74 @@ export default function App() {
                 <span className="logo-tagline">RETAIL SHOWROOM EXPERIENCE</span>
               </div>
             </motion.div>
-            <motion.p initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.35 }}
+            >
               Precision engineered pure water for modern living.
             </motion.p>
             <div className="splash-progress">
-              <motion.i initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: 1.3, ease: 'easeInOut' }} />
+              <motion.i
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ duration: 1.1, ease: 'easeInOut' }}
+              />
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Tablet Top Navigation Bar */}
-      <header className="topbar">
-        <button
+      {/* Apple-style Translucent Floating Navigation Bar */}
+      <header className="topbar apple-chrome">
+        <motion.button
           className="brand"
           onClick={() => {
             setQuery('');
             setCategory('All Products');
             selectProduct(products[0]);
           }}
+          whileTap={{ scale: 0.96 }}
           aria-label="Life Filtration Home"
         >
           <span className="brand-icon">
-            <Droplet fill="currentColor" size={28} />
+            <Droplet fill="currentColor" size={24} />
           </span>
           <span className="brand-name">
             LIFE <b>FILTRATION</b>
             <small>TOUCHSCREEN SHOWROOM</small>
           </span>
-        </button>
+        </motion.button>
 
-        {/* Categories Bar in Header for Tablet Ergonomics */}
-        <div className="header-categories">
-          {categories.map((c) => (
-            <button
-              key={c}
-              className={`header-cat-pill ${category === c ? 'is-selected' : ''}`}
-              onClick={() => {
-                setCategory(c);
-                resetIdle();
-              }}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
+        {/* Apple Segmented Control for Categories */}
+        <nav className="apple-segmented-control" aria-label="Product categories">
+          {categories.map((c) => {
+            const isSelected = category === c;
+            return (
+              <button
+                key={c}
+                className={`segmented-item ${isSelected ? 'is-selected' : ''}`}
+                onClick={() => {
+                  setCategory(c);
+                  resetIdle();
+                }}
+              >
+                {isSelected && (
+                  <motion.span
+                    layoutId="activeCategoryPill"
+                    className="segmented-pill-bg"
+                    transition={{ type: 'spring', damping: 32, stiffness: 420 }}
+                  />
+                )}
+                <span className="segmented-label">{c}</span>
+              </button>
+            );
+          })}
+        </nav>
 
         <div className="topbar-actions">
           <label className="header-search">
-            <Search size={16} />
+            <Search size={15} />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -181,47 +219,52 @@ export default function App() {
               aria-label="Search systems"
             />
             {query && (
-              <button aria-label="Clear search" onClick={() => setQuery('')}>
-                <X size={14} />
-              </button>
+              <motion.button
+                aria-label="Clear search"
+                onClick={() => setQuery('')}
+                whileTap={{ scale: 0.85 }}
+              >
+                <X size={13} />
+              </motion.button>
             )}
           </label>
-          <button
+          <motion.button
             className="home-button"
             onClick={() => {
               setQuery('');
               setCategory('All Products');
               selectProduct(products[0]);
             }}
+            whileTap={{ scale: 0.94 }}
             title="Reset to home"
           >
-            <Home size={18} />
+            <Home size={16} />
             <span>Home</span>
-          </button>
+          </motion.button>
         </div>
       </header>
 
-      {/* Main Accordion Stage */}
+      {/* Main Accordion Stage with Fluid CSS Flex Transitions */}
       <section className="catalogue-stage" aria-label="Interactive Product Showcase">
         <div className="gallery-frame">
-          {/* Left Arrow */}
-          <button
+          {/* Left Arrow with spring touch */}
+          <motion.button
             className="gallery-arrow arrow-left"
             onClick={() => step(-1)}
             aria-label="Previous product"
             disabled={visibleProducts.length < 2}
+            whileTap={{ scale: 0.9 }}
           >
-            <ChevronLeft size={28} />
-          </button>
+            <ChevronLeft size={24} />
+          </motion.button>
 
           {/* Horizontal Expanding Gallery */}
           <div className="accordion-gallery">
             {visibleProducts.length ? (
-              visibleProducts.map((p, index) => {
+              visibleProducts.map((p) => {
                 const selected = p.id === active.id;
                 return (
-                  <motion.div
-                    layout
+                  <div
                     key={p.id}
                     className={`product-panel ${selected ? 'is-active' : 'is-collapsed'}`}
                     onClick={() => {
@@ -234,15 +277,19 @@ export default function App() {
                     }}
                     aria-expanded={selected}
                     aria-label={`Explore ${p.name}`}
-                    transition={{ type: 'spring', stiffness: 220, damping: 28 }}
                   >
                     {selected ? (
-                      /* EXPANDED PANEL CONTENT */
+                      /* EXPANDED PANEL CONTENT with Fast, Crisp Apple Reveal */
                       <motion.div
+                        key={`expanded-${p.id}`}
                         className="expanded-content"
-                        initial={{ opacity: 0.3 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.25 }}
+                        drag="x"
+                        dragConstraints={{ left: 0, right: 0 }}
+                        dragElastic={0.12}
+                        onDragEnd={handleStageSwipe}
+                        initial={{ opacity: 0, x: 6 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
                       >
                         {/* Left Column: Product Information & In-Card Feature Buttons */}
                         <div className="active-product-copy">
@@ -262,79 +309,98 @@ export default function App() {
                             {p.features.map((f) => (
                               <div key={f} className="feature-item">
                                 <span className="feature-check">
-                                  <Check size={14} />
+                                  <Check size={12} />
                                 </span>
                                 <span>{f}</span>
                               </div>
                             ))}
                           </div>
 
-                          {/* Carousel Action Buttons directly inside the product card */}
+                          {/* Carousel Action Buttons with Apple spring press feedback */}
                           <div className="card-action-bar">
-                            <button
+                            <motion.button
                               className="button button-primary"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setModal('details');
                               }}
+                              whileTap={{ scale: 0.96 }}
                             >
                               <span>Learn More About This Product</span>
-                              <ArrowRight size={17} />
-                            </button>
+                              <ArrowRight size={15} />
+                            </motion.button>
 
-                            <button
+                            <motion.button
                               className="button button-card-action"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setModal('video');
                               }}
                               title="Watch product video"
+                              whileTap={{ scale: 0.96 }}
                             >
-                              <Play size={16} fill="currentColor" />
+                              <Play size={15} fill="currentColor" />
                               <span>Watch Video</span>
-                            </button>
+                            </motion.button>
 
-                            <button
+                            <motion.button
                               className="button button-card-action"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setModal('certifications');
                               }}
                               title="View certifications and ratings"
+                              whileTap={{ scale: 0.96 }}
                             >
-                              <ShieldCheck size={17} />
-                              <span>Certifications & Ratings</span>
-                            </button>
+                              <ShieldCheck size={16} />
+                              <span>Certifications</span>
+                            </motion.button>
                           </div>
 
                           <div className="panel-footer-note">
                             <span className="note-item">
-                              <Sparkles size={14} /> CERTIFIED WATER TECHNOLOGY
+                              <Sparkles size={13} className="text-apple-blue" /> CERTIFIED WATER TECHNOLOGY
                             </span>
-                            <span className="note-item">TOUCHSCREEN EXPLORER</span>
+                            <span className="note-item swipe-hint">SWIPE OR TAP TO NAVIGATE</span>
                           </div>
                         </div>
 
-                        {/* Right Column: Authentic Product Photography Showcase */}
+                        {/* Right Column: Authentic Product Photography Showcase (Full Bleed Image with Floating Cards Above) */}
                         <div className="active-product-art">
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            className="art-full-bleed-img"
+                            loading="eager"
+                          />
+
+                          <div className="art-ambient-vignette" />
+
+                          {/* Top Floating Glass Badges */}
                           <div className="art-header-overlay">
-                            <span className="art-label-text">OFFICIAL PRODUCT PHOTOGRAPHY</span>
-                            <span className="art-live-pulse" />
+                            <div className="art-label-capsule">
+                              <span className="art-label-text">OFFICIAL PHOTOGRAPHY</span>
+                              <span className="art-live-pulse" />
+                            </div>
+                            <div className="art-original-capsule">
+                              <ShieldCheck size={13} className="text-apple-teal" />
+                              <span>ORIGINAL SYSTEM</span>
+                            </div>
                           </div>
 
-                          <ProductVisual product={p} />
-
+                          {/* Bottom Floating Specs Cards Above Image */}
                           <div className="art-specs-quickview">
                             {p.specs.slice(0, 2).map((s) => (
                               <div key={s.label} className="quick-spec-pill">
-                                <strong>{s.label}:</strong> {s.value}
+                                <span className="quick-spec-label">{s.label}</span>
+                                <strong className="quick-spec-val">{s.value}</strong>
                               </div>
                             ))}
                           </div>
                         </div>
                       </motion.div>
                     ) : (
-                      /* COLLAPSED PANEL STRIP */
+                      /* COLLAPSED PANEL STRIP - Strictly aligned thumbnails */
                       <div className="collapsed-content">
                         <span className="strip-index">
                           0{products.findIndex((x) => x.id === p.id) + 1}
@@ -345,67 +411,78 @@ export default function App() {
                         </div>
 
                         <span className="strip-name">{p.shortName}</span>
-                        <span className="strip-category">{p.category}</span>
 
                         <span className="strip-chevron">
-                          <ChevronRight size={20} />
+                          <ChevronRight size={18} />
                         </span>
                       </div>
                     )}
-                  </motion.div>
+                  </div>
                 );
               })
             ) : (
               <div className="no-results">
-                <Search size={36} />
+                <Search size={32} />
                 <strong>No matching systems found</strong>
                 <p>Try searching for RO, Softener, or Filter, or clear the search filter.</p>
-                <button
+                <motion.button
                   className="button button-primary"
                   onClick={() => {
                     setQuery('');
                     setCategory('All Products');
                   }}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <RotateCcw size={16} />
+                  <RotateCcw size={15} />
                   <span>Reset filters</span>
-                </button>
+                </motion.button>
               </div>
             )}
           </div>
 
-          {/* Right Arrow */}
-          <button
+          {/* Right Arrow with spring touch */}
+          <motion.button
             className="gallery-arrow arrow-right"
             onClick={() => step(1)}
             aria-label="Next product"
             disabled={visibleProducts.length < 2}
+            whileTap={{ scale: 0.9 }}
           >
-            <ChevronRight size={28} />
-          </button>
+            <ChevronRight size={24} />
+          </motion.button>
         </div>
 
         {/* Gallery Tablet Pagination / Status Bar */}
         <div className="gallery-tablet-footer">
           <div className="tablet-hint">
             <span className="hint-icon">
-              <ArrowLeft size={16} />
-              <ArrowRight size={16} />
+              <ArrowLeft size={14} />
+              <ArrowRight size={14} />
             </span>
-            <span>Tap any vertical panel or use arrows to expand a system</span>
+            <span>Tap any strip or swipe across the card to explore systems</span>
           </div>
 
           <div className="gallery-pills">
-            {visibleProducts.map((p) => (
-              <button
-                key={p.id}
-                aria-label={`Select ${p.shortName}`}
-                className={`pill-indicator ${p.id === active.id ? 'is-active' : ''}`}
-                onClick={() => selectProduct(p)}
-              >
-                <span>{p.shortName}</span>
-              </button>
-            ))}
+            {visibleProducts.map((p) => {
+              const isActive = p.id === active.id;
+              return (
+                <button
+                  key={p.id}
+                  aria-label={`Select ${p.shortName}`}
+                  className={`pill-indicator ${isActive ? 'is-active' : ''}`}
+                  onClick={() => selectProduct(p)}
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="activePillDot"
+                      className="active-pill-tracker"
+                      transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+                    />
+                  )}
+                  <span>{p.shortName}</span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="gallery-counter">
@@ -416,11 +493,11 @@ export default function App() {
         </div>
       </section>
 
-      {/* Persistent Bottom Tablet Bar */}
-      <footer className="tablet-footer">
+      {/* Persistent Bottom Apple-style Translucent Bar */}
+      <footer className="tablet-footer apple-chrome">
         <div className="footer-left-info">
           <div className="footer-icon-bubble">
-            <Droplet size={18} fill="currentColor" />
+            <Droplet size={16} fill="currentColor" />
           </div>
           <div>
             <strong>Life Filtration™ Showroom Display</strong>
@@ -429,22 +506,23 @@ export default function App() {
         </div>
 
         <div className="footer-right-actions">
-          <a
+          <motion.a
             href={active.officialUrl}
             target="_blank"
             rel="noreferrer"
             className="footer-link-btn"
+            whileTap={{ scale: 0.95 }}
           >
             <span>Visit lifefiltration.com</span>
-            <ExternalLink size={14} />
-          </a>
+            <ExternalLink size={13} />
+          </motion.a>
         </div>
       </footer>
 
-      {/* Modals for Details, Video, and Certifications */}
+      {/* Modals for Details, Video, and Certifications - Centered on Screen */}
       <Modal kind={modal} product={active} onClose={() => setModal(null)} />
 
-      {/* Inactivity Screen Saver for Tablet Kiosk */}
+      {/* Inactivity Ambient Screen Saver */}
       <AnimatePresence>
         {showIdle && (
           <motion.div
@@ -452,31 +530,40 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.45 }}
+            onClick={() => {
+              setShowIdle(false);
+              resetIdle();
+            }}
           >
             <motion.div
-              className="idle-card"
-              initial={{ scale: 0.94, y: 15 }}
+              className="idle-card apple-glass-card"
+              initial={{ scale: 0.92, y: 20 }}
               animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.94, y: 15 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 280 }}
             >
               <div className="idle-drop">
-                <Droplet size={40} fill="currentColor" />
+                <Droplet size={38} fill="currentColor" />
               </div>
-              <p className="eyebrow">LIFE FILTRATION RETAIL</p>
-              <h2>Explore Pure Water</h2>
-              <p>Touch anywhere to return to the interactive product showroom.</p>
-              <button
+              <p className="eyebrow">LIFE FILTRATION · SHOWROOM</p>
+              <h2>Pure Water, Refined</h2>
+              <p>Touch anywhere on the display to resume the interactive product showroom.</p>
+              <motion.button
                 className="button button-primary button-large"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   setShowIdle(false);
                   resetIdle();
                   setQuery('');
                   setCategory('All Products');
                   selectProduct(products[0]);
                 }}
+                whileTap={{ scale: 0.96 }}
               >
                 <span>Start Exploring</span>
-                <ArrowRight size={18} />
-              </button>
+                <ArrowRight size={17} />
+              </motion.button>
             </motion.div>
           </motion.div>
         )}

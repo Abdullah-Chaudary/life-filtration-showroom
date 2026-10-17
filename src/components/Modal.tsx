@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, ExternalLink, ShieldCheck, PlayCircle, FileText, CheckCircle2, Award } from 'lucide-react';
 import type { Product } from '../data/products';
@@ -13,6 +14,19 @@ export default function Modal({
   product: Product;
   onClose: () => void;
 }) {
+  // Close on Escape key press for keyboard accessibility
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    if (kind) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [kind, onClose]);
+
   return (
     <AnimatePresence>
       {kind && (
@@ -21,23 +35,35 @@ export default function Modal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onMouseDown={(e) => {
+          transition={{ duration: 0.2, ease: 'easeOut' }}
+          onClick={(e) => {
             if (e.target === e.currentTarget) onClose();
           }}
         >
           <motion.section
-            className="modal-panel"
+            className="modal-panel apple-center-dialog"
             role="dialog"
             aria-modal="true"
             aria-labelledby="modal-title"
-            initial={{ y: 20, opacity: 0, scale: 0.98 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 15, opacity: 0 }}
-            transition={{ duration: 0.22 }}
+            initial={{ opacity: 0, scale: 0.92, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 15 }}
+            transition={{
+              type: 'spring',
+              damping: 26,
+              stiffness: 320,
+              mass: 0.85
+            }}
           >
             <header className="modal-header">
               <div className="modal-heading-icon">
-                {kind === 'video' ? <PlayCircle size={24} /> : kind === 'certifications' ? <ShieldCheck size={24} /> : <FileText size={24} />}
+                {kind === 'video' ? (
+                  <PlayCircle size={22} className="text-apple-blue" />
+                ) : kind === 'certifications' ? (
+                  <ShieldCheck size={22} className="text-apple-teal" />
+                ) : (
+                  <FileText size={22} className="text-apple-blue" />
+                )}
               </div>
               <div className="modal-title-group">
                 <p className="eyebrow">LIFE FILTRATION · TOUCHSCREEN GUIDE</p>
@@ -49,9 +75,14 @@ export default function Modal({
                     : `${product.name} Specifications`}
                 </h2>
               </div>
-              <button className="icon-close-button" onClick={onClose} aria-label="Close modal">
-                <X size={20} />
-              </button>
+              <motion.button
+                className="icon-close-button"
+                onClick={onClose}
+                aria-label="Close modal"
+                whileTap={{ scale: 0.9 }}
+              >
+                <X size={18} />
+              </motion.button>
             </header>
 
             <div className="modal-content">
@@ -74,9 +105,13 @@ export default function Modal({
                       <div className="video-visual-poster">
                         <img src={product.image} alt={product.name} className="poster-img" />
                         <div className="poster-glass-overlay">
-                          <div className="play-button-pulsing">
-                            <PlayCircle size={56} className="play-icon-glow" />
-                          </div>
+                          <motion.div
+                            className="play-button-pulsing"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <PlayCircle size={52} className="play-icon-glow" />
+                          </motion.div>
                           <strong>Interactive Showcase & Walkthrough</strong>
                           <span>HD 1080p · Touchscreen Video Demonstrator</span>
                         </div>
@@ -86,15 +121,16 @@ export default function Modal({
                         <h3>About {product.shortName}</h3>
                         <p>{product.description}</p>
                         <div className="video-modal-actions">
-                          <a
+                          <motion.a
                             className="button button-primary"
                             href={product.officialUrl}
                             target="_blank"
                             rel="noreferrer"
+                            whileTap={{ scale: 0.96 }}
                           >
                             <span>Watch Online at Life Filtration</span>
-                            <ExternalLink size={16} />
-                          </a>
+                            <ExternalLink size={15} />
+                          </motion.a>
                         </div>
                       </div>
                     </div>
@@ -111,7 +147,7 @@ export default function Modal({
                     />
                     <div className="cert-banner-text">
                       <div className="badge-pill">
-                        <Award size={15} />
+                        <Award size={14} />
                         <span>THIRD-PARTY TESTED & CERTIFIED</span>
                       </div>
                       <h3>Engineered Quality & Rigorous Standards</h3>
@@ -126,7 +162,7 @@ export default function Modal({
                       product.certifications.map((c, i) => (
                         <div className="cert-item-card" key={i}>
                           <div className="cert-item-icon">
-                            <CheckCircle2 size={22} className="text-emerald-600" />
+                            <CheckCircle2 size={20} className="text-apple-teal" />
                           </div>
                           <div className="cert-item-content">
                             <h4>{c.title}</h4>
@@ -137,7 +173,7 @@ export default function Modal({
                     ) : (
                       <div className="cert-item-card">
                         <div className="cert-item-icon">
-                          <ShieldCheck size={22} className="text-emerald-600" />
+                          <ShieldCheck size={20} className="text-apple-teal" />
                         </div>
                         <div className="cert-item-content">
                           <h4>Comprehensive Factory Tested Standard</h4>
@@ -150,15 +186,16 @@ export default function Modal({
                   </div>
 
                   <div className="cert-footer-action">
-                    <a
+                    <motion.a
                       className="button button-primary"
                       href={product.officialUrl}
                       target="_blank"
                       rel="noreferrer"
+                      whileTap={{ scale: 0.96 }}
                     >
                       <span>Verify on Official Life Filtration Website</span>
-                      <ExternalLink size={16} />
-                    </a>
+                      <ExternalLink size={15} />
+                    </motion.a>
                   </div>
                 </div>
               ) : (
@@ -189,22 +226,23 @@ export default function Modal({
                   <div className="feature-bullets-grid">
                     {product.features.map((f) => (
                       <div className="bullet-row" key={f}>
-                        <CheckCircle2 size={16} className="bullet-icon" />
+                        <CheckCircle2 size={16} className="bullet-icon text-apple-teal" />
                         <span>{f}</span>
                       </div>
                     ))}
                   </div>
 
                   <div className="details-action-row">
-                    <a
+                    <motion.a
                       className="button button-primary"
                       href={product.officialUrl}
                       target="_blank"
                       rel="noreferrer"
+                      whileTap={{ scale: 0.96 }}
                     >
                       <span>Explore on Official Product Webpage</span>
-                      <ExternalLink size={16} />
-                    </a>
+                      <ExternalLink size={15} />
+                    </motion.a>
                   </div>
                 </div>
               )}
